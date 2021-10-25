@@ -11,7 +11,6 @@ from homeassistant.components.climate.const import (
     HVAC_MODE_DRY,
     HVAC_MODE_FAN_ONLY,
     HVAC_MODE_HEAT,
-    HVAC_MODE_HEAT_COOL,
     HVAC_MODE_OFF,
     CURRENT_HVAC_OFF,
     CURRENT_HVAC_HEAT,
@@ -30,23 +29,23 @@ import logging
 _LOGGER = logging.getLogger(__name__)
 
 MAP_AC_MODE = {
-    0: HVAC_MODE_AUTO,
-    1: HVAC_MODE_HEAT,
-    2: HVAC_MODE_DRY,
-    3: HVAC_MODE_FAN_ONLY,
-    4: HVAC_MODE_COOL,
-    8: HVAC_MODE_AUTO,
-    9: HVAC_MODE_AUTO
+    0: HVAC_MODE_AUTO,      # AUTO
+    1: HVAC_MODE_HEAT,      # HEAT
+    2: HVAC_MODE_DRY,       # DRY
+    3: HVAC_MODE_FAN_ONLY,  # FAN
+    4: HVAC_MODE_COOL,      # COOL
+    8: HVAC_MODE_AUTO,      # AUTO-HEAT
+    9: HVAC_MODE_AUTO       # AUTO-COOL
 }
 
 MAP_AC_FAN_MODE = {
-    0: FAN_AUTO,
-    1: FAN_DIFFUSE,
-    2: FAN_LOW,
-    3: FAN_MEDIUM,
-    4: FAN_HIGH,
-    5: FAN_FOCUS,
-    6: "turbo"
+    0: FAN_AUTO,            # AUTO
+    1: FAN_DIFFUSE,         # QUIET
+    2: FAN_LOW,             # LOW
+    3: FAN_MEDIUM,          # MEDIUM
+    4: FAN_HIGH,            # HIGH
+    5: FAN_FOCUS,           # POWERFUL
+    6: "turbo"              # TURBO
 }
 
 async def async_setup_entry(hass, config_entry, async_add_devices):
@@ -218,11 +217,19 @@ class AirtouchACThermostat(ClimateEntity):
         # The call back registration is done once this entity is registered with HA
         # (rather than in the __init__)
         self._ac.register_callback(self.async_write_ha_state)
+        # TODO: here we register for notifications from all groups
+        # we should determine the groups belonging to this AC instead
+        for group in self._airtouch.groups:
+            group.register_callback(self.async_write_ha_state)
 
     async def async_will_remove_from_hass(self) -> None:
         """Entity being removed from hass."""
         # The opposite of async_added_to_hass. Remove any registered call backs here.
         self._ac.remove_callback(self.async_write_ha_state)
+        # TODO: here we unregister for notifications from all groups
+        # we should determine the groups belonging to this AC instead
+        for group in self._airtouch.groups:
+            group.remove_callback(self.async_write_ha_state)
 
     @property
     def name(self):
@@ -262,11 +269,62 @@ class AirtouchACThermostat(ClimateEntity):
     @property
     def min_temp(self):
         """Return the minimum temperature."""
+        itc_control = sum([group.group_control_type for group in self._airtouch.groups])
+        if itc_control == len(self._airtouch.groups):
+            if self.hvac_mode == HVAC_MODE_HEAT or self._ac.ac_mode == 8:
+                # heat: max(groups)
+                temp = self._airtouch.acs_info[self._id]["ac_min_temp"]
+                for group in self._airtouch.groups:
+                    if group.group_target > temp:
+                        temp = group.group_target
+                return temp
+            elif self.hvac_mode == HVAC_MODE_COOL or self._ac.ac_mode == 9:
+                # cool: min(groups)
+                temp = self._airtouch.acs_info[self._id]["ac_max_temp"]
+                for group in self._airtouch.groups:
+                    if group.group_target < temp:
+                        temp = group.group_target
+                return temp
+            else:
+                return None
+        elif itc_control > 0 and (self.hvac_mode == HVAC_MODE_HEAT or self._ac.ac_mode == 8):
+            # heat: max(groups)
+            temp = self._airtouch.acs_info[self._id]["ac_min_temp"]
+            for group in self._airtouch.groups:
+                if group.group_control_type and group.group_target > temp:
+                    temp = group.group_target
+            return temp
         return self._airtouch.acs_info[self._id]["ac_min_temp"]
 
     @property
     def max_temp(self):
         """Return the maximum temperature."""
+        itc_control = sum([group.group_control_type for group in self._airtouch.groups])
+        if itc_control == len(self._airtouch.groups):
+            # all groups are controlled by ITC, AC temperature control is disabled
+            if self.hvac_mode == HVAC_MODE_HEAT or self._ac.ac_mode == 8:
+                # heat: max(groups)
+                temp = self._airtouch.acs_info[self._id]["ac_min_temp"]
+                for group in self._airtouch.groups:
+                    if group.group_target > temp:
+                        temp = group.group_target
+                return temp
+            elif self.hvac_mode == HVAC_MODE_COOL or self._ac.ac_mode == 9:
+                # cool: min(groups)
+                temp = self._airtouch.acs_info[self._id]["ac_max_temp"]
+                for group in self._airtouch.groups:
+                    if group.group_control_type and group.group_target < temp:
+                        temp = group.group_target
+                return temp
+            else:
+                return None
+        elif itc_control > 0 and (self.hvac_mode == HVAC_MODE_COOL or self._ac.ac_mode == 9):
+            # cool: min(groups)
+            temp = self._airtouch.acs_info[self._id]["ac_max_temp"]
+            for group in self._airtouch.groups:
+                if group.group_target < temp:
+                    temp = group.group_target
+            return temp
         return self._airtouch.acs_info[self._id]["ac_max_temp"]
 
     @property
@@ -300,13 +358,8 @@ class AirtouchACThermostat(ClimateEntity):
     @property
     def supported_features(self):
         """Return the list of supported features."""
-        condition_target_temperature = False
-        for group in self._airtouch.groups:
-            if group.group_control_type == 0:
-                condition_target_temperature = True
-                break
-        condition_fan_mode = len(self.fan_modes) > 0
-        return (condition_target_temperature and SUPPORT_TARGET_TEMPERATURE) | (condition_fan_mode and SUPPORT_FAN_MODE)
+        itc_control = sum([group.group_control_type for group in self._airtouch.groups])
+        return (itc_control < len(self._airtouch.groups) and SUPPORT_TARGET_TEMPERATURE) | (len(self.fan_modes) > 0 and SUPPORT_FAN_MODE)
 
     async def async_set_hvac_mode(self, hvac_mode):
         """Set new target hvac mode."""
@@ -333,10 +386,6 @@ class AirtouchACThermostat(ClimateEntity):
         temp = kwargs.get(ATTR_TEMPERATURE)
         if temp is None or temp == self.target_temperature:
             return
-        # set target temp to min group temp if group has ITC control
-        for group in self._airtouch.groups:
-            if group.group_control_type == 1 and group.group_target > temp:
-                temp = group.group_target
         await self._airtouch.request_ac_target_temp(self._id, int(temp)) # and self.async_write_ha_state()
 
     async def async_turn_on(self):
