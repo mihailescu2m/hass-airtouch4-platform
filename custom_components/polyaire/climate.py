@@ -59,8 +59,9 @@ async def async_setup_entry(hass, config_entry, async_add_devices):
         ac_entity = AirTouchACThermostat(airtouch, ac)
         new_devices.append(ac_entity)
     for group in airtouch.groups:
-        group_entity = AirTouchGroupThermostat(airtouch, group)
-        new_devices.append(group_entity)
+        if group.group_has_sensor:
+            group_entity = AirTouchGroupThermostat(airtouch, group)
+            new_devices.append(group_entity)
     
     if new_devices:
         async_add_devices(new_devices)
