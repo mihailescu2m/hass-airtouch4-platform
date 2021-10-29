@@ -1,6 +1,6 @@
 {
   "domain": "polyaire",
-  "name": "Airtouch 4",
+  "name": "AirTouch 4",
   "config_flow": true,
   "documentation": "https://www.home-assistant.io/integrations/polyaire",
   "requirements": [],

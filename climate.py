@@ -22,6 +22,7 @@ from homeassistant.components.climate.const import (
     SUPPORT_TARGET_TEMPERATURE,
 )
 from homeassistant.const import ATTR_TEMPERATURE, TEMP_CELSIUS
+from homeassistant.helpers.entity import DeviceInfo
 
 from .const import DOMAIN
 
@@ -49,23 +50,22 @@ MAP_AC_FAN_MODE = {
 }
 
 async def async_setup_entry(hass, config_entry, async_add_devices):
-    """Set up the Airtouch4."""
-    _LOGGER.debug("Setting up Airtouch climate entities...")
+    """Set up the AirTouch 4 climate entities."""
+    _LOGGER.debug("Setting up AirTouch climate entities...")
     airtouch = hass.data[DOMAIN][config_entry.entry_id]
-    await airtouch.ready()
 
     new_devices = []
     for ac in airtouch.acs:
-        ac_entity = AirtouchACThermostat(airtouch, ac)
+        ac_entity = AirTouchACThermostat(airtouch, ac)
         new_devices.append(ac_entity)
     for group in airtouch.groups:
-        group_entity = AirtouchGroupThermostat(airtouch, group)
+        group_entity = AirTouchGroupThermostat(airtouch, group)
         new_devices.append(group_entity)
     
     if new_devices:
         async_add_devices(new_devices)
 
-class AirtouchGroupThermostat(ClimateEntity):
+class AirTouchGroupThermostat(ClimateEntity):
     def __init__(self, airtouch, group):
         self._airtouch = airtouch
         self._group = group
@@ -192,16 +192,16 @@ class AirtouchGroupThermostat(ClimateEntity):
             await self._airtouch.request_group_power(self._id, 0)
         else:
             await self._airtouch.request_group_power(self._id, 1)
-        # self.async_write_ha_state()
+        self.async_write_ha_state()
 
     async def async_set_temperature(self, **kwargs):
         """Set new target temperature."""
         temp = kwargs.get(ATTR_TEMPERATURE)
         if temp is None or temp == self.target_temperature:
             return
-        await self._airtouch.request_group_target_temp(self._id, temp) # and self.async_write_ha_state()
+        await self._airtouch.request_group_target_temp(self._id, temp) and self.async_write_ha_state()
 
-class AirtouchACThermostat(ClimateEntity):
+class AirTouchACThermostat(ClimateEntity):
     def __init__(self, airtouch, ac):
         self._airtouch = airtouch
         self._ac = ac
@@ -245,6 +245,16 @@ class AirtouchACThermostat(ClimateEntity):
     def unique_id(self):
         """Return unique ID for this device."""
         return "ac_" + str(self._id)
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return device info for this device."""
+        return DeviceInfo(
+            identifiers={(DOMAIN, self.unique_id)},
+            manufacturer="Polyaire",
+            model="AirTouch 4",
+            name=self.name
+        )
 
     @property
     def temperature_unit(self):
@@ -372,26 +382,26 @@ class AirtouchACThermostat(ClimateEntity):
         else:
             mode = next((k for k, v in MAP_AC_MODE.items() if v == hvac_mode), None)
             mode is not None and await self._airtouch.request_ac_hvac_mode(self._id, mode)
-        # self.async_write_ha_state()
+        self.async_write_ha_state()
 
     async def async_set_fan_mode(self, fan_mode):
         """Set new target fan mode."""
         if fan_mode == self.fan_mode:
             return
         mode = next((k for k, v in MAP_AC_FAN_MODE.items() if v == fan_mode), None)
-        mode is not None and await self._airtouch.request_ac_fan_mode(self._id, mode) # and self.async_write_ha_state()
+        mode is not None and await self._airtouch.request_ac_fan_mode(self._id, mode) and self.async_write_ha_state()
 
     async def async_set_temperature(self, **kwargs):
         """Set new target temperature."""
         temp = kwargs.get(ATTR_TEMPERATURE)
         if temp is None or temp == self.target_temperature:
             return
-        await self._airtouch.request_ac_target_temp(self._id, int(temp)) # and self.async_write_ha_state()
+        await self._airtouch.request_ac_target_temp(self._id, int(temp)) and self.async_write_ha_state()
 
     async def async_turn_on(self):
         """Turn on."""
-        await self._airtouch.request_ac_power(self._id, 1) # and self.async_write_ha_state()
+        await self._airtouch.request_ac_power(self._id, 1) and self.async_write_ha_state()
 
     async def async_turn_off(self):
         """Turn off."""
-        await self._airtouch.request_ac_power(self._id, 0) # and self.async_write_ha_state()
+        await self._airtouch.request_ac_power(self._id, 0) and self.async_write_ha_state()

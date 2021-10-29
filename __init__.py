@@ -8,7 +8,7 @@ from homeassistant.const import CONF_HOST
 import asyncio
 
 from .const import DOMAIN
-from .airtouch4 import Airtouch4
+from .airtouch4 import AirTouch4
 
 import logging
 _LOGGER = logging.getLogger(__name__)
@@ -28,7 +28,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Airtouch4 from a config entry."""
     # Store an instance of the "connecting" class that does the work of speaking
     # with your actual devices.
-    airtouch = Airtouch4(entry.data[CONF_HOST])
+    airtouch = AirTouch4(entry.data[CONF_HOST])
+    try:
+        await asyncio.wait_for(airtouch.ready(), 5)
+    except asyncio.TimeoutError:
+        await airtouch.disconnect()
+        return False
+
     hass.data[DOMAIN][entry.entry_id] = airtouch
 
     # This creates each HA object for each platform your device requires.
@@ -56,6 +62,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
 
     if unload_ok:
-        hass.data[DOMAIN].pop(entry.entry_id)
+        airtouch = hass.data[DOMAIN].pop(entry.entry_id)
+        await airtouch.disconnect()
 
     return unload_ok

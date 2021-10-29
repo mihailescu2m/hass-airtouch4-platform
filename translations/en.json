@@ -5,14 +5,14 @@
         },
         "error": {
             "cannot_connect": "Failed to connect",
-            "service_not_found": "Could not find any AirTouch groups",
             "unknown": "Unexpected error"
         },
         "step": {
             "user": {
                 "data": {
                     "host": "Host"
-                }
+                },
+                "title": "Enter the AirTouch 4 connection details"
             }
         }
     }

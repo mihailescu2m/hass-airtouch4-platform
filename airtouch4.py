@@ -1,53 +1,80 @@
 from __future__ import annotations
 
 import asyncio
+import socket
 
 from .protocol import *
 
 import logging
 _LOGGER = logging.getLogger(__name__)
 
-class Airtouch4():
+class AirTouch4():
     def __init__(self, host, port=9004):
         self._host = host
         self._port = port
         self.connected = False
-        self.groups_info = {}
         self.groups = []
-        self.acs_info = {}
-        self.acs = []
-        self._reader = None
-        self._writer = None
-        self._queue = asyncio.Queue()
+        self.groups_info = {}
         self._groups_ready = asyncio.Event()
+        self.acs = []
+        self.acs_info = {}
         self._acs_ready = asyncio.Event()
-        asyncio.create_task(self._init())
-
-    async def _init(self) -> None:
-        await self._connect()
-        asyncio.create_task(self._publish())
+        self._reader = None
+        self._receiver = None
+        self._writer = None
+        self._sender = None
+        self._queue = asyncio.Queue()
+        asyncio.create_task(self._connect())
         
     async def _connect(self) -> None:
-        _LOGGER.debug("(Re)connecting...")
+        _LOGGER.info("(Re)connecting...")
         while not self.connected:
             try:
-                self._reader, self._writer = await asyncio.open_connection(self._host, self._port)
-            except:
+                task = asyncio.open_connection(self._host, self._port)
+                self._reader, self._writer = await asyncio.wait_for(task, 5)
+            except (asyncio.TimeoutError, socket.gaierror):
+                # return when cannot connect (e.g. wrong host)
+                _LOGGER.error("Cannot connect to AirTouch host, giving up...")
+                return
+            except Exception as ex:
+                # try again on disconnect
+                _LOGGER.warning("Error connecting to AirTouch host, trying again in 5s...")
                 self.connected = False
                 await asyncio.sleep(5)
                 continue
             self.connected = True
-            _LOGGER.debug("(Re)connected!")
-        asyncio.create_task(self._subscribe())
-        await self.request_group_info()
-        await self.request_group_status()
-        await self.request_ac_info()
-        await self.request_ac_status()
+            _LOGGER.info("(Re)connected!")
+        # start receiver task
+        if not self._receiver or self._receiver.done():
+            self._receiver = asyncio.create_task(self._receive())
+        # start sender task
+        if not self._sender or self._sender.done():
+            self._sender = asyncio.create_task(self._send())
+
+    async def disconnect(self):
+        _LOGGER.info("Disconnecting...")
+        if self.connected:
+            # close socket/writer
+            # IncompleteReadError will be raised in the receiver, which will exit gracefully
+            self._writer.close()
+            await self._writer.wait_closed()
+        if self._receiver and not self._receiver.done():
+            self._receiver.cancel()
+        if self._sender and not self._sender.done():
+            self._sender.cancel()
     
-    async def ready(self) -> bool:
+    async def ready(self) -> None:
+        # request info from AirTouch
+        if not self._groups_ready.is_set():
+            await self.request_group_info()
+            await self.request_group_status()
+        if not self._acs_ready.is_set():
+            await self.request_ac_info()
+            await self.request_ac_status()
+        # wait for status response
         await self._groups_ready.wait()
         await self._acs_ready.wait()
-        return True
+        _LOGGER.info("Status received from AirTouch")
 
     async def _read_msg(self) -> Message:
         header = await self._reader.readexactly(6)
@@ -58,7 +85,7 @@ class Airtouch4():
         if header[2:4] == bytes(reversed(EXTENDED_ADDRESS_BYTES)):
             extended = True
         elif header[2:4] != bytes(reversed(ADDRESS_BYTES)):
-            _LOGGER.info("Message received with invalid address!")
+            _LOGGER.debug("Message received with invalid address!")
 
         size_bytes = await self._reader.readexactly(2)
         size = int.from_bytes(size_bytes, ENDIANNESS)
@@ -73,8 +100,8 @@ class Airtouch4():
         msg_type = header[5]
         return Message(data, msg_type, msg_id, extended)
 
-    async def _subscribe(self) -> None:
-        _LOGGER.debug("Message listener (re)started...")
+    async def _receive(self) -> None:
+        _LOGGER.info("Message receiver (re)started...")
         while self.connected:
             try:
                 while msg := await self._read_msg():
@@ -83,7 +110,7 @@ class Airtouch4():
                         for group in groups:
                             existing = next((g for g in self.groups if g.group_number == group), None)
                             if not existing:
-                                self.groups.append(AirtouchGroupStatus(**groups[group].__dict__))
+                                self.groups.append(AirTouchGroupStatus(**groups[group].__dict__))
                             else:
                                 existing.update(groups[group].__dict__)
                         if len(self.groups): self._groups_ready.set()
@@ -92,7 +119,7 @@ class Airtouch4():
                         for ac in acs:
                             existing = next((u for u in self.acs if u.ac_unit_number == ac), None)
                             if not existing:
-                                self.acs.append(AirtouchACStatus(**acs[ac].__dict__))
+                                self.acs.append(AirTouchACStatus(**acs[ac].__dict__))
                             else:
                                 existing.update(acs[ac].__dict__)
                         if len(self.acs): self._acs_ready.set()
@@ -102,25 +129,32 @@ class Airtouch4():
                         elif msg.data[:2] == MSG_EXTENDED_AC_DATA:
                             self.acs_info.update(msg.decode_acs_info())
             except ConnectionError:
-                _LOGGER.error("Connection error in listener, disconnect!")
+                _LOGGER.error("Connection error in receiver!")
                 self.connected = False
                 self._reader = None
                 self._writer = None
+            except asyncio.IncompleteReadError:
+                # disconnected on request
+                self.connected = False
+                self._reader = None
+                self._writer = None
+                _LOGGER.info("Message receiver exiting!")
+                return
+        _LOGGER.info("Message receriver restarting with reconnect...")
         asyncio.create_task(self._connect())
-        _LOGGER.debug("Message listener finished after scheduling a reconnect...")
 
     async def _write_msg(self, msg: Message) -> None:
         size_bytes, data = msg.encode()
         self._writer.writelines([size_bytes, data])
         await self._writer.drain()
 
-    async def _publish(self) -> None:
+    async def _send(self) -> None:
         while True:
             while msg := await self._queue.get():
                 try:
                     await self._write_msg(msg)
                 except:
-                    _LOGGER.error("Connection error in publisher, disconnect!")
+                    _LOGGER.error("Error sending message! Retry in 5 seconds...")
                     self.connected = False
                     self._reader = None
                     self._writer = None

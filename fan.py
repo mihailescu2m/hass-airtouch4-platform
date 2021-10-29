@@ -3,7 +3,6 @@ from homeassistant.components.fan import (
     SUPPORT_SET_SPEED,
     SUPPORT_PRESET_MODE,
 )
-from homeassistant.core import callback
 
 from types import SimpleNamespace
 
@@ -18,20 +17,19 @@ class PRESETS(SimpleNamespace):
     ITC = "ITC"
 
 async def async_setup_entry(hass, config_entry, async_add_devices):
-    """Set up the Airtouch zone entities."""
-    _LOGGER.debug("Setting up Airtouch zone entities...")
+    """Set up the AirTouch 4 zone entities."""
+    _LOGGER.debug("Setting up AirTouch zone entities...")
     airtouch = hass.data[DOMAIN][config_entry.entry_id]
-    await airtouch.ready()
 
     new_devices = []
     for group in airtouch.groups:
-        group_entity = AirtouchGroupDamper(airtouch, group)
+        group_entity = AirTouchGroupDamper(airtouch, group)
         new_devices.append(group_entity)
     
     if new_devices:
         async_add_devices(new_devices)
 
-class AirtouchGroupDamper(FanEntity):
+class AirTouchGroupDamper(FanEntity):
     def __init__(self, airtouch, group):
         self._airtouch = airtouch
         self._group = group
@@ -107,14 +105,14 @@ class AirtouchGroupDamper(FanEntity):
         """Set the speed percentage of the fan."""
         if percentage == self.percentage or self.preset_mode != PRESETS.DAMPER:
             return
-        await self._airtouch.request_group_open_perc(self._id, percentage) # and self.async_write_ha_state()
+        await self._airtouch.request_group_open_perc(self._id, percentage) and self.async_write_ha_state()
 
     async def async_set_preset_mode(self, preset_mode):
         """Set the preset mode of the fan."""
         if preset_mode == self.preset_mode:
             return
         control_type = GROUP_CONTROL_TYPES.DAMPER if preset_mode == PRESETS.DAMPER else GROUP_CONTROL_TYPES.TEMPERATURE
-        await self._airtouch.request_group_control_type(self._id, control_type) # and self.async_write_ha_state()
+        await self._airtouch.request_group_control_type(self._id, control_type) and self.async_write_ha_state()
 
     async def async_turn_on(self, speed = None, percentage = None, preset_mode = None, **kwargs):
         """Turn on the fan."""
@@ -123,8 +121,8 @@ class AirtouchGroupDamper(FanEntity):
             await self.async_set_percentage(percentage)
         if preset_mode is not None:
             await self.async_set_preset_mode(preset_mode)
-        # self.async_write_ha_state()
+        self.async_write_ha_state()
     
     async def async_turn_off(self, **kwargs):
         """Turn the fan off."""
-        await self._airtouch.request_group_power(self._id, 0) # and self.async_write_ha_state()
+        await self._airtouch.request_group_power(self._id, 0) and self.async_write_ha_state()

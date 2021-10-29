@@ -120,7 +120,7 @@ class Updateable(SimpleNamespace):
                 callback()
 
 
-class AirtouchGroupStatus(Updateable):
+class AirTouchGroupStatus(Updateable):
     group_power_state: int
     group_number: int
     group_control_type: int
@@ -132,7 +132,7 @@ class AirtouchGroupStatus(Updateable):
     group_temp: float
     group_has_spill: int
 
-class AirtouchACStatus(Updateable):
+class AirTouchACStatus(Updateable):
     ac_power_state: int
     ac_unit_number: int
     ac_mode: int
@@ -164,14 +164,14 @@ class Message:
         message = HEADER_BYTES + payload + crc_bytes
         return len(message).to_bytes(4, ENDIANNESS), message
 
-    def decode_groups_status(self) -> dict[int, AirtouchGroupStatus]:
+    def decode_groups_status(self) -> dict[int, AirTouchGroupStatus]:
         if not self.isValid():
             return None
         groups = dict()
         chunk = 6
         for group in [self.data[i:i+chunk] for i in range(0, len(self.data), chunk)]:
             group_number = group[0] & 0b00111111
-            groups[group_number] = AirtouchGroupStatus(
+            groups[group_number] = AirTouchGroupStatus(
                 group_power_state = (group[0] & 0b11000000) >> 6,
                 group_number = group_number,
                 group_control_type = (group[1] & 0b10000000) >> 7,
@@ -197,14 +197,14 @@ class Message:
             groups_info[group_number] = group_name
         return groups_info
 
-    def decode_acs_status(self) -> dict[int, AirtouchACStatus]:
+    def decode_acs_status(self) -> dict[int, AirTouchACStatus]:
         if not self.isValid():
             return None
         acs = dict()
         chunk = 8
         for ac in [self.data[i:i+chunk] for i in range(0, len(self.data), chunk)]:
             ac_unit_number = ac[0] & 0b00111111
-            acs[ac_unit_number] = AirtouchACStatus(
+            acs[ac_unit_number] = AirTouchACStatus(
                 ac_power_state = (ac[0] & 0b11000000) >> 6,
                 ac_unit_number = ac_unit_number,
                 ac_mode = (ac[1] & 0b11110000) >> 4,
