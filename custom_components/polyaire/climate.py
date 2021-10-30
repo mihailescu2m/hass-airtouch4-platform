@@ -73,6 +73,8 @@ class AirTouchGroupThermostat(ClimateEntity):
         self._unit_number = airtouch.get_group_ac(group.group_number)
         self._id = group.group_number
         self._name = airtouch.groups_info[group.group_number]
+        _LOGGER.warning("Group " + str(self._id) + " belongs to AC " + str(self._unit_number))
+        _LOGGER.warning("==============================")
     
     async def async_added_to_hass(self) -> None:
         """Run when this Entity has been added to HA."""
@@ -130,6 +132,8 @@ class AirTouchGroupThermostat(ClimateEntity):
     def min_temp(self):
         """Return the minimum temperature."""
         if self._group.group_control_type == 1:
+            _LOGGER.warning("Temp min of group " + str(self._id) + " from AC " + str(self._unit_number) + " is " + str(self._airtouch.acs_info[self._unit_number]["ac_min_temp"]))
+            _LOGGER.warning("==============================")
             return self._airtouch.acs_info[self._unit_number]["ac_min_temp"]
         return self._group.group_target
 

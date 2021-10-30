@@ -135,10 +135,10 @@ class AirTouch4():
                     elif msg.type == MSGTYPE_EXTENDED:
                         if msg.data[:2] == MSG_EXTENDED_GROUP_DATA:
                             self.groups_info.update(msg.decode_groups_info())
-                            _LOGGER.debug(self.groups_info)
+                            _LOGGER.warning(self.groups_info)
                         elif msg.data[:2] == MSG_EXTENDED_AC_DATA:
                             self.acs_info.update(msg.decode_acs_info())
-                            _LOGGER.debug(self.acs_info)
+                            _LOGGER.warning(self.acs_info)
             except ConnectionError:
                 _LOGGER.error("Connection error in receiver!")
                 self.connected = False
