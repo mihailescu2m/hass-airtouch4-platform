@@ -131,14 +131,14 @@ class AirTouchGroupThermostat(ClimateEntity):
         """Return the minimum temperature."""
         if self._group.group_control_type == 1:
             return self._airtouch.acs_info[self._unit_number]["ac_min_temp"]
-        return self._group.group_temp
+        return self._group.group_target
 
     @property
     def max_temp(self):
         """Return the maximum temperature."""
         if self._group.group_control_type == 1:
             return self._airtouch.acs_info[self._unit_number]["ac_max_temp"]
-        return self._group.group_temp
+        return self._group.group_target
 
     @property
     def hvac_action(self):
