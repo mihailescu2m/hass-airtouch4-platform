@@ -70,6 +70,7 @@ class AirTouchGroupThermostat(ClimateEntity):
     def __init__(self, airtouch, group):
         self._airtouch = airtouch
         self._group = group
+        self._unit_number = airtouch.get_group_ac(group.group_number)
         self._id = group.group_number
         self._name = airtouch.groups_info[group.group_number]
     
@@ -82,17 +83,13 @@ class AirTouchGroupThermostat(ClimateEntity):
         # The call back registration is done once this entity is registered with HA
         # (rather than in the __init__)
         self._group.register_callback(self.async_write_ha_state)
-        # TODO: here we register for notifications from AC0
-        # we should determine the AC this group belongs to instead
-        self._airtouch.acs[0].register_callback(self.async_write_ha_state)
+        self._airtouch.acs[self._unit_number].register_callback(self.async_write_ha_state)
 
     async def async_will_remove_from_hass(self) -> None:
         """Entity being removed from hass."""
         # The opposite of async_added_to_hass. Remove any registered call backs here.
         self._group.remove_callback(self.async_write_ha_state)
-        # TODO: here we unregister for notifications from AC0
-        # we should determine the AC this group belongs to instead
-        self._airtouch.acs[0].remove_callback(self.async_write_ha_state)
+        self._airtouch.acs[self._unit_number].remove_callback(self.async_write_ha_state)
 
     @property
     def name(self):
@@ -133,36 +130,30 @@ class AirTouchGroupThermostat(ClimateEntity):
     def min_temp(self):
         """Return the minimum temperature."""
         if self._group.group_control_type == 1:
-            # TODO: here we return the min temp of AC0
-            # we should determine the AC this group belongs to instead
-            return self._airtouch.acs_info[0]["ac_min_temp"]
+            return self._airtouch.acs_info[self._unit_number]["ac_min_temp"]
         return self._group.group_temp
 
     @property
     def max_temp(self):
         """Return the maximum temperature."""
         if self._group.group_control_type == 1:
-            # TODO: here we return the max temp of AC0
-            # we should determine the AC this group belongs to instead
-            return self._airtouch.acs_info[0]["ac_max_temp"]
+            return self._airtouch.acs_info[self._unit_number]["ac_max_temp"]
         return self._group.group_temp
 
     @property
     def hvac_action(self):
         """Return the current running hvac operation if supported."""
-        # TODO: here we return the state/mode of AC0
-        # we should determine the AC this group belongs to instead
         if self.hvac_mode == HVAC_MODE_OFF:
             return CURRENT_HVAC_OFF
-        elif self._airtouch.acs[0].ac_power_state == 0:
+        elif self._airtouch.acs[self._unit_number].ac_power_state == 0:
             return CURRENT_HVAC_IDLE
-        elif self._airtouch.acs[0].ac_mode == 1:
+        elif self._airtouch.acs[self._unit_number].ac_mode == 1:
             return CURRENT_HVAC_HEAT
-        elif self._airtouch.acs[0].ac_mode == 4:
+        elif self._airtouch.acs[self._unit_number].ac_mode == 4:
             return CURRENT_HVAC_COOL
-        elif self._airtouch.acs[0].ac_mode == 2:
+        elif self._airtouch.acs[self._unit_number].ac_mode == 2:
             return CURRENT_HVAC_DRY
-        elif self._airtouch.acs[0].ac_mode == 3:
+        elif self._airtouch.acs[self._unit_number].ac_mode == 3:
             return CURRENT_HVAC_FAN
         return None
 
@@ -218,19 +209,17 @@ class AirTouchACThermostat(ClimateEntity):
         # The call back registration is done once this entity is registered with HA
         # (rather than in the __init__)
         self._ac.register_callback(self.async_write_ha_state)
-        # TODO: here we register for notifications from all groups
-        # we should determine the groups belonging to this AC instead
         for group in self._airtouch.groups:
-            group.register_callback(self.async_write_ha_state)
+            if self._airtouch.get_group_ac(group.group_number) == self._id:
+                group.register_callback(self.async_write_ha_state)
 
     async def async_will_remove_from_hass(self) -> None:
         """Entity being removed from hass."""
         # The opposite of async_added_to_hass. Remove any registered call backs here.
         self._ac.remove_callback(self.async_write_ha_state)
-        # TODO: here we unregister for notifications from all groups
-        # we should determine the groups belonging to this AC instead
         for group in self._airtouch.groups:
-            group.remove_callback(self.async_write_ha_state)
+            if self._airtouch.get_group_ac(group.group_number) == self._id:
+                group.remove_callback(self.async_write_ha_state)
 
     @property
     def name(self):

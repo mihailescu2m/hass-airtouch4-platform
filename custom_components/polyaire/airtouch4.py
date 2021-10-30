@@ -25,7 +25,16 @@ class AirTouch4():
         self._sender = None
         self._queue = asyncio.Queue()
         asyncio.create_task(self._connect())
-        
+
+    def get_group_ac(self, group_number: int) -> int:
+        ac_unit_number = 0
+        ac_group_start = 0
+        for unit_number, info in self.acs_info.items():
+            if info["ac_group_start"] < group_number and info["ac_group_start"] > ac_group_start:
+                ac_unit_number = unit_number
+                ac_group_start = info["ac_group_start"]
+        return ac_unit_number
+
     async def _connect(self) -> None:
         _LOGGER.info("(Re)connecting...")
         while not self.connected:
@@ -126,14 +135,10 @@ class AirTouch4():
                     elif msg.type == MSGTYPE_EXTENDED:
                         if msg.data[:2] == MSG_EXTENDED_GROUP_DATA:
                             self.groups_info.update(msg.decode_groups_info())
-                            _LOGGER.warning("========== GROUPS INFO ==========")
-                            _LOGGER.warning(self.groups_info)
-                            _LOGGER.warning("==============================")
+                            _LOGGER.debug(self.groups_info)
                         elif msg.data[:2] == MSG_EXTENDED_AC_DATA:
                             self.acs_info.update(msg.decode_acs_info())
-                            _LOGGER.warning("========== ACS INFO ==========")
-                            _LOGGER.warning(self.acs_info)
-                            _LOGGER.warning("==============================")
+                            _LOGGER.debug(self.acs_info)
             except ConnectionError:
                 _LOGGER.error("Connection error in receiver!")
                 self.connected = False
