@@ -33,7 +33,16 @@ class AirTouch4():
             if info["ac_group_start"] <= group_number and info["ac_group_start"] > ac_group_start:
                 ac_unit_number = unit_number
                 ac_group_start = info["ac_group_start"]
-        return ac_unit_number
+        return self.acs[ac_unit_number]
+
+    def get_ac_groups(self, unit_number: int) -> list[int]:
+        ac_group_start = self.acs_info[unit_number]["ac_group_start"]
+        ac_group_end = len(self.groups)
+        for unit_number, info in self.acs_info.items():
+            if info["ac_group_start"] > ac_group_start and info["ac_group_start"] < ac_group_end:
+                ac_group_end = info["ac_group_start"]
+        return [group for group in self.groups if group.group_number in range(ac_group_start, ac_group_end)]
+
 
     async def _connect(self) -> None:
         _LOGGER.info("(Re)connecting...")
