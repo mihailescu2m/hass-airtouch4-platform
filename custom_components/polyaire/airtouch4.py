@@ -83,7 +83,7 @@ class AirTouch4():
         # wait for status response
         await self._groups_ready.wait()
         await self._acs_ready.wait()
-        _LOGGER.info("Status received from AirTouch")
+        _LOGGER.info("Received all status information from AirTouch, ready to go!")
 
     async def _read_msg(self) -> Message:
         header = await self._reader.readexactly(6)
@@ -135,10 +135,10 @@ class AirTouch4():
                     elif msg.type == MSGTYPE_EXTENDED:
                         if msg.data[:2] == MSG_EXTENDED_GROUP_DATA:
                             self.groups_info.update(msg.decode_groups_info())
-                            _LOGGER.warning(self.groups_info)
+                            _LOGGER.debug(self.groups_info)
                         elif msg.data[:2] == MSG_EXTENDED_AC_DATA:
                             self.acs_info.update(msg.decode_acs_info())
-                            _LOGGER.warning(self.acs_info)
+                            _LOGGER.debug(self.acs_info)
             except ConnectionError:
                 _LOGGER.error("Connection error in receiver!")
                 self.connected = False
