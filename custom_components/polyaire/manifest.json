@@ -1,7 +1,7 @@
 {
   "domain": "polyaire",
   "name": "AirTouch 4",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "config_flow": true,
   "documentation": "https://github.com/mihailescu2m/hass-airtouch4-platform",
   "issue_tracker": "https://github.com/mihailescu2m/hass-airtouch4-platform/issues",

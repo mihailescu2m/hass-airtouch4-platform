@@ -52,6 +52,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
 
         return self.async_create_entry(
-            title="airtouch (" + user_input[CONF_HOST] + ")",
+            title="AirTouch 4 (" + user_input[CONF_HOST] + ")",
             data=user_input
         )
