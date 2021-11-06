@@ -148,11 +148,6 @@ class AirTouch4():
                         elif msg.data[:2] == MSG_EXTENDED_AC_DATA:
                             self.acs_info.update(msg.decode_acs_info())
                             _LOGGER.debug(self.acs_info)
-            except ConnectionError:
-                _LOGGER.error("Connection error in receiver!")
-                self.connected = False
-                self._reader = None
-                self._writer = None
             except asyncio.IncompleteReadError:
                 # disconnected on request
                 self.connected = False
@@ -160,6 +155,11 @@ class AirTouch4():
                 self._writer = None
                 _LOGGER.info("Message receiver exiting!")
                 return
+            except:
+                _LOGGER.error("Connection error in receiver!")
+                self.connected = False
+                self._reader = None
+                self._writer = None
         _LOGGER.info("Message receriver restarting with reconnect...")
         asyncio.create_task(self._connect())
 
