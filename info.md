@@ -1,6 +1,6 @@
 # HomeAssistant - Polyaire AirTouch 4 Integration
 
-Custom integration to add an AirTouch 4 AC Controller
+Custom integration to add an AirTouch 4 AC Controller (with local push)
 
 ## Usage:
 
