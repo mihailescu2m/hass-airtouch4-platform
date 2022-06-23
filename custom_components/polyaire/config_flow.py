@@ -21,7 +21,7 @@ DATA_SCHEMA = vol.Schema(
     }
 )
 
-class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+class AirTouch4ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Airtouch4."""
 
     VERSION = 1

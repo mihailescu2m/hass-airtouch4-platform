@@ -17,8 +17,8 @@ class PRESETS(SimpleNamespace):
     ITC = "ITC"
 
 async def async_setup_entry(hass, config_entry, async_add_devices):
-    """Set up the AirTouch 4 zone entities."""
-    _LOGGER.debug("Setting up AirTouch zone entities...")
+    """Set up the AirTouch 4 fan entities."""
+    _LOGGER.debug("Setting up AirTouch fan entities...")
     airtouch = hass.data[DOMAIN][config_entry.entry_id]
 
     new_devices = []
@@ -35,6 +35,7 @@ class AirTouchGroupDamper(FanEntity):
         self._group = group
         self._id = group.group_number
         self._name = airtouch.groups_info[group.group_number]
+        _LOGGER.debug("Damper " + str(self._id) + ": created")
     
     async def async_added_to_hass(self) -> None:
         """Run when this Entity has been added to HA."""
@@ -44,17 +45,19 @@ class AirTouchGroupDamper(FanEntity):
         # called where ever there are changes.
         # The call back registration is done once this entity is registered with HA
         # (rather than in the __init__)
+        _LOGGER.debug("Damper " + str(self._id) + ": registering callbacks")
         self._group.register_callback(self.async_write_ha_state)
 
     async def async_will_remove_from_hass(self) -> None:
         """Entity being removed from hass."""
         # The opposite of async_added_to_hass. Remove any registered call backs here.
+        _LOGGER.debug("Damper " + str(self._id) + ": removing callbacks")
         self._group.remove_callback(self.async_write_ha_state)
 
     @property
     def name(self):
         """Return the name for this device."""
-        return self._name
+        return "Damper " + self._name
 
     @property
     def should_poll(self):
@@ -64,7 +67,7 @@ class AirTouchGroupDamper(FanEntity):
     @property
     def unique_id(self):
         """Return unique ID for this device."""
-        return "zone_" + str(self._id)
+        return "polyaire_damper_" + str(self._id)
 
     @property
     def is_on(self):

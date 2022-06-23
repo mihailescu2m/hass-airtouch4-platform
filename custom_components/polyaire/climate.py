@@ -83,7 +83,8 @@ class AirTouchGroupThermostat(ClimateEntity):
         self._ac_max_temp = airtouch.acs_info[self._ac.ac_unit_number]["ac_max_temp"]
         self._id = group.group_number
         self._name = airtouch.groups_info[group.group_number]
-        _LOGGER.debug("Group " + str(self._id) + " belongs to AC " + str(self._ac.ac_unit_number))
+        _LOGGER.debug("ITC Thermostat " + str(self._id) + ": created")
+        _LOGGER.debug("ITC Thermostat " + str(self._id) + " belongs to: AC " + str(self._ac.ac_unit_number))
     
     async def async_added_to_hass(self) -> None:
         """Run when this Entity has been added to HA."""
@@ -93,19 +94,21 @@ class AirTouchGroupThermostat(ClimateEntity):
         # called where ever there are changes.
         # The call back registration is done once this entity is registered with HA
         # (rather than in the __init__)
+        _LOGGER.debug("ITC Thermostat " + str(self._id) + ": registering callbacks")
         self._group.register_callback(self.async_write_ha_state)
         self._ac.register_callback(self.async_write_ha_state)
 
     async def async_will_remove_from_hass(self) -> None:
         """Entity being removed from hass."""
         # The opposite of async_added_to_hass. Remove any registered call backs here.
-        self._group.remove_callback(self.async_write_ha_state)
+        _LOGGER.debug("ITC Thermostat " + str(self._id) + ": removing callbacks")
         self._ac.remove_callback(self.async_write_ha_state)
+        self._group.remove_callback(self.async_write_ha_state)
 
     @property
     def name(self):
         """Return the name for this device."""
-        return self._name
+        return "ITC " + self._name
 
     @property
     def should_poll(self):
@@ -115,7 +118,7 @@ class AirTouchGroupThermostat(ClimateEntity):
     @property
     def unique_id(self):
         """Return unique ID for this device."""
-        return "group_" + str(self._id)
+        return "polyaire_itc_" + str(self._id)
 
     @property
     def temperature_unit(self):
@@ -211,6 +214,7 @@ class AirTouchACThermostat(ClimateEntity):
         self._id = ac.ac_unit_number
         self._info = airtouch.acs_info[ac.ac_unit_number]
         self._groups = airtouch.get_ac_groups(ac.ac_unit_number)
+        _LOGGER.debug("AC " + str(self._id) + ": created")
     
     async def async_added_to_hass(self) -> None:
         """Run when this Entity has been added to HA."""
@@ -220,6 +224,7 @@ class AirTouchACThermostat(ClimateEntity):
         # called where ever there are changes.
         # The call back registration is done once this entity is registered with HA
         # (rather than in the __init__)
+        _LOGGER.debug("AC " + str(self._id) + ": registering callbacks")
         self._ac.register_callback(self.async_write_ha_state)
         for group in self._groups:
             group.register_callback(self.async_write_ha_state)
@@ -227,6 +232,7 @@ class AirTouchACThermostat(ClimateEntity):
     async def async_will_remove_from_hass(self) -> None:
         """Entity being removed from hass."""
         # The opposite of async_added_to_hass. Remove any registered call backs here.
+        _LOGGER.debug("AC " + str(self._id) + ": removing callbacks")
         self._ac.remove_callback(self.async_write_ha_state)
         for group in self._groups:
             group.remove_callback(self.async_write_ha_state)
@@ -234,7 +240,7 @@ class AirTouchACThermostat(ClimateEntity):
     @property
     def name(self):
         """Return the name for this device."""
-        return self._info["ac_unit_name"]
+        return "AC " + self._info["ac_unit_name"]
 
     @property
     def should_poll(self):
@@ -244,7 +250,7 @@ class AirTouchACThermostat(ClimateEntity):
     @property
     def unique_id(self):
         """Return unique ID for this device."""
-        return "ac_" + str(self._id)
+        return "polyaire_ac_" + str(self._id)
 
     @property
     def device_info(self) -> DeviceInfo:

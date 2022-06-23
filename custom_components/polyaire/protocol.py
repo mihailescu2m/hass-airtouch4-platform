@@ -114,10 +114,12 @@ class Updateable(SimpleNamespace):
                 setattr(self, key, value)
                 updated = True
         if updated:
+            _LOGGER.debug("----- start callbacks -----")
             for callback in self._callbacks:
                 id = self.group_number if hasattr(self, "group_number") else self.ac_unit_number
                 _LOGGER.debug("Updated " + self.__class__.__name__ + " " + str(id) + " status, calling: " + str(callback))
                 callback()
+            _LOGGER.debug("------ end callbacks ------")
 
 
 class AirTouchGroupStatus(Updateable):

@@ -12,6 +12,7 @@ class AirTouch4():
     def __init__(self, host, port=9004):
         self._host = host
         self._port = port
+        self.want_connection = True
         self.connected = False
         self.groups = []
         self.groups_info = {}
@@ -24,6 +25,7 @@ class AirTouch4():
         self._writer = None
         self._sender = None
         self._queue = asyncio.Queue()
+        _LOGGER.debug("created new airtouch hub, waiting to connect to the host...")
         asyncio.create_task(self._connect())
 
     def get_group_ac(self, group_number: int) -> int:
@@ -45,9 +47,12 @@ class AirTouch4():
 
 
     async def _connect(self) -> None:
+        if not self.want_connection:
+            return
         _LOGGER.info("(Re)connecting...")
         while not self.connected:
             try:
+                _LOGGER.debug("open socket connection to the airtouch...")
                 task = asyncio.open_connection(self._host, self._port)
                 self._reader, self._writer = await asyncio.wait_for(task, 5)
             except (asyncio.TimeoutError, socket.gaierror):
@@ -71,6 +76,7 @@ class AirTouch4():
 
     async def disconnect(self):
         _LOGGER.info("Disconnecting...")
+        self.want_connection = False
         if self.connected:
             # close socket/writer
             # IncompleteReadError will be raised in the receiver, which will exit gracefully
@@ -99,11 +105,16 @@ class AirTouch4():
         if bytes(header[:2]) != HEADER_BYTES:
             _LOGGER.error("Message received with invalid header!")
             return None
+        unknown = False
         extended = False
         if header[2:4] == bytes(reversed(EXTENDED_ADDRESS_BYTES)):
+            _LOGGER.debug("Message received with extended header!")
             extended = True
         elif header[2:4] != bytes(reversed(ADDRESS_BYTES)):
-            _LOGGER.debug("Message received with invalid address!")
+            _LOGGER.debug("Message received with unknown header!")
+            unknown = True
+        else:
+            _LOGGER.debug("Message received with expected header!")
 
         size_bytes = await self._reader.readexactly(2)
         size = int.from_bytes(size_bytes, ENDIANNESS)
@@ -111,7 +122,9 @@ class AirTouch4():
         crc_bytes = await self._reader.readexactly(2)
         crc = int.from_bytes(crc_bytes, ENDIANNESS)
         if crc != crc16(header[2:] + size_bytes + data):
-            _LOGGER.error("Message received with invalid crc!")
+            _LOGGER.error("Message received has invalid crc!")
+            return None
+        elif unknown:
             return None
 
         msg_id = header[4]
@@ -119,7 +132,7 @@ class AirTouch4():
         return Message(data, msg_type, msg_id, extended)
 
     async def _receive(self) -> None:
-        _LOGGER.info("Message receiver (re)started...")
+        _LOGGER.info("Message receiver task (re)started...")
         while self.connected:
             try:
                 while msg := await self._read_msg():
@@ -148,19 +161,12 @@ class AirTouch4():
                         elif msg.data[:2] == MSG_EXTENDED_AC_DATA:
                             self.acs_info.update(msg.decode_acs_info())
                             _LOGGER.debug(self.acs_info)
-            except asyncio.IncompleteReadError:
-                # disconnected on request
-                self.connected = False
-                self._reader = None
-                self._writer = None
-                _LOGGER.info("Message receiver exiting!")
-                return
-            except:
+            except Exception: # asyncio.IncompleteReadError
                 _LOGGER.error("Connection error in receiver!")
                 self.connected = False
                 self._reader = None
                 self._writer = None
-        _LOGGER.info("Message receriver restarting with reconnect...")
+        _LOGGER.info("Message receiver lost connection, trying to reconnect...")
         asyncio.create_task(self._connect())
 
     async def _write_msg(self, msg: Message) -> None:
@@ -169,18 +175,19 @@ class AirTouch4():
         await self._writer.drain()
 
     async def _send(self) -> None:
-        while True:
-            while msg := await self._queue.get():
-                try:
-                    await self._write_msg(msg)
-                except:
-                    _LOGGER.error("Error sending message! Retry in 5 seconds...")
-                    self.connected = False
-                    self._reader = None
-                    self._writer = None
-                    await asyncio.sleep(5)
-                    self._queue.put_nowait(msg)
-                self._queue.task_done()
+        _LOGGER.info("Message sender task (re)started...")
+        while (self.want_connection) and (msg := await self._queue.get()):
+            try:
+                await self._write_msg(msg)
+            except Exception:
+                _LOGGER.error("Error sending message! Deleting existing connection and retry sending in 5 seconds...")
+                _LOGGER.debug("PS: somebody else should restart the connection, we'll just try retry sending in 5s...")
+                self.connected = False
+                self._reader = None
+                self._writer = None
+                await asyncio.sleep(5)
+                self._queue.put_nowait(msg)
+            self._queue.task_done()
 
     async def request_group_status(self) -> None:
         self._queue.put_nowait(Message.GROUP_STATUS_REQUEST())
