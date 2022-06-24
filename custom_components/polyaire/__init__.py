@@ -33,7 +33,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     airtouch = AirTouch4(entry.data[CONF_HOST])
     try:
         _LOGGER.debug("async_setup_entry: waiting for airtouch connection to be ready...")
-        await asyncio.wait_for(airtouch.ready(), 5)
+        await asyncio.wait_for(airtouch.ready(), 20)
     except asyncio.TimeoutError:
         _LOGGER.debug("async_setup_entry: timeout error waiting for airtouch, disconnecting...")
         await airtouch.disconnect()

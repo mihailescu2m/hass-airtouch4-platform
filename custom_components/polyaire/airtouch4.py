@@ -47,19 +47,19 @@ class AirTouch4():
 
 
     async def _connect(self) -> None:
-        if not self.want_connection:
-            return
-        _LOGGER.info("(Re)connecting...")
-        while not self.connected:
+        while self.want_connection and not self.connected:
+            _LOGGER.info("(Re)connecting...")
             try:
                 _LOGGER.debug("open socket connection to the airtouch...")
                 task = asyncio.open_connection(self._host, self._port)
-                self._reader, self._writer = await asyncio.wait_for(task, 5)
-            except (asyncio.TimeoutError, socket.gaierror):
-                # return when cannot connect (e.g. wrong host)
+                self._reader, self._writer = await asyncio.wait_for(task, 10)
+            except socket.gaierror:
+                _LOGGER.error("Cannot find AirTouch host, giving up...")
+                return
+            except asyncio.TimeoutError:
                 _LOGGER.error("Cannot connect to AirTouch host, giving up...")
                 return
-            except Exception as ex:
+            except Exception:
                 # try again on disconnect
                 _LOGGER.warning("Error connecting to AirTouch host, trying again in 5s...")
                 self.connected = False
@@ -67,6 +67,8 @@ class AirTouch4():
                 continue
             self.connected = True
             _LOGGER.info("(Re)connected!")
+        if not self.want_connection:
+            return
         # start receiver task
         if not self._receiver or self._receiver.done():
             self._receiver = asyncio.create_task(self._receive())
@@ -78,8 +80,7 @@ class AirTouch4():
         _LOGGER.info("Disconnecting...")
         self.want_connection = False
         if self.connected:
-            # close socket/writer
-            # IncompleteReadError will be raised in the receiver, which will exit gracefully
+            # close socket/writer with IncompleteReadError
             self._writer.close()
             await self._writer.wait_closed()
         if self._receiver and not self._receiver.done():
