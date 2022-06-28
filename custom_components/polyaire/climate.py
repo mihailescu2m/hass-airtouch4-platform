@@ -96,13 +96,13 @@ class AirTouchGroupThermostat(ClimateEntity):
         # (rather than in the __init__)
         _LOGGER.debug("ITC Thermostat " + str(self._id) + ": registering callbacks")
         self._group.register_callback(self.async_write_ha_state)
-        self._ac.register_callback(self.async_write_ha_state)
+        # self._ac.register_callback(self.async_write_ha_state)
 
     async def async_will_remove_from_hass(self) -> None:
         """Entity being removed from hass."""
         # The opposite of async_added_to_hass. Remove any registered call backs here.
         _LOGGER.debug("ITC Thermostat " + str(self._id) + ": removing callbacks")
-        self._ac.remove_callback(self.async_write_ha_state)
+        # self._ac.remove_callback(self.async_write_ha_state)
         self._group.remove_callback(self.async_write_ha_state)
 
     @property
@@ -226,8 +226,8 @@ class AirTouchACThermostat(ClimateEntity):
         # (rather than in the __init__)
         _LOGGER.debug("AC " + str(self._id) + ": registering callbacks")
         self._ac.register_callback(self.async_write_ha_state)
-        for group in self._groups:
-            group.register_callback(self.async_write_ha_state)
+        # for group in self._groups:
+        #    group.register_callback(self.async_write_ha_state)
 
     async def async_will_remove_from_hass(self) -> None:
         """Entity being removed from hass."""

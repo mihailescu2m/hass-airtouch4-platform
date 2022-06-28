@@ -108,11 +108,13 @@ class AirTouch4():
             return None
         unknown = False
         extended = False
-        if header[2:4] == bytes(reversed(EXTENDED_ADDRESS_BYTES)):
+        # if header[2:4] == bytes(reversed(EXTENDED_ADDRESS_BYTES)):
+        if header[3] == EXTENDED_ADDRESS_BYTES[0]:
             _LOGGER.debug("Message received with extended header!")
             extended = True
-        elif header[2:4] != bytes(reversed(ADDRESS_BYTES)):
-            _LOGGER.debug("Message received with unknown header!")
+        # elif header[2:4] != bytes(reversed(ADDRESS_BYTES)):
+        elif header[3] != ADDRESS_BYTES[0]:
+            _LOGGER.warning("Message received with unknown header: " + str(header[2:4]))
             unknown = True
         else:
             _LOGGER.debug("Message received with expected header!")
@@ -126,6 +128,9 @@ class AirTouch4():
             _LOGGER.error("Message received has invalid crc!")
             return None
         elif unknown:
+            if (size_bytes):
+                _LOGGER.warning("Unknown message:")
+                _LOGGER.warning(data)
             return None
 
         msg_id = header[4]
@@ -138,15 +143,19 @@ class AirTouch4():
             try:
                 while msg := await self._read_msg():
                     if msg.type == MSGTYPE_GRP_STAT:
+                        _LOGGER.debug("Message received is group message!")
                         groups = msg.decode_groups_status()
+                        updated = False
                         for group in groups:
                             existing = next((g for g in self.groups if g.group_number == group), None)
                             if not existing:
                                 self.groups.append(AirTouchGroupStatus(**groups[group].__dict__))
                             else:
-                                existing.update(groups[group].__dict__)
+                                updated = existing.update(groups[group].__dict__) or updated
                         if len(self.groups): self._groups_ready.set()
+                        if updated: await self.request_ac_status() # if a group is updated, we also request for AC update
                     elif msg.type == MSGTYPE_AC_STAT:
+                        _LOGGER.debug("Message received is AC message!")
                         acs = msg.decode_acs_status()
                         for ac in acs:
                             existing = next((u for u in self.acs if u.ac_unit_number == ac), None)
@@ -156,12 +165,16 @@ class AirTouch4():
                                 existing.update(acs[ac].__dict__)
                         if len(self.acs): self._acs_ready.set()
                     elif msg.type == MSGTYPE_EXTENDED:
+                        _LOGGER.debug("Message received is extended message!")
                         if msg.data[:2] == MSG_EXTENDED_GROUP_DATA:
                             self.groups_info.update(msg.decode_groups_info())
                             _LOGGER.debug(self.groups_info)
                         elif msg.data[:2] == MSG_EXTENDED_AC_DATA:
                             self.acs_info.update(msg.decode_acs_info())
                             _LOGGER.debug(self.acs_info)
+                    else:
+                        _LOGGER.debug("Message received with unknown type: " + hex(msg.type))
+                        _LOGGER.debug(msg.data)
             except Exception: # asyncio.IncompleteReadError
                 _LOGGER.error("Connection error in receiver!")
                 self.connected = False

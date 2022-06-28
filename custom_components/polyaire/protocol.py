@@ -5,6 +5,7 @@ import os
 from types import SimpleNamespace
 
 import logging
+from xmlrpc.client import Boolean
 _LOGGER = logging.getLogger(__name__)
 
 def crc16(data: bytes) -> int:
@@ -107,7 +108,7 @@ class Updateable(SimpleNamespace):
         """Remove previously registered callback."""
         self._callbacks.discard(callback)
 
-    def update(self, status: dict) -> None:
+    def update(self, status: dict) -> Boolean:
         updated = False
         for key, value in status.items():
             if hasattr(self, key) and type(value) is not set and getattr(self, key) != value:
@@ -120,7 +121,7 @@ class Updateable(SimpleNamespace):
                 _LOGGER.debug("Updated " + self.__class__.__name__ + " " + str(id) + " status, calling: " + str(callback))
                 callback()
             _LOGGER.debug("------ end callbacks ------")
-
+        return updated
 
 class AirTouchGroupStatus(Updateable):
     group_power_state: int
