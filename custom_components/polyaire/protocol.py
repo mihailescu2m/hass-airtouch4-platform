@@ -5,7 +5,6 @@ import os
 from types import SimpleNamespace
 
 import logging
-from xmlrpc.client import Boolean
 _LOGGER = logging.getLogger(__name__)
 
 def crc16(data: bytes) -> int:
@@ -108,7 +107,7 @@ class Updateable(SimpleNamespace):
         """Remove previously registered callback."""
         self._callbacks.discard(callback)
 
-    def update(self, status: dict) -> Boolean:
+    def update(self, status: dict) -> bool:
         updated = False
         for key, value in status.items():
             if hasattr(self, key) and type(value) is not set and getattr(self, key) != value:
