@@ -87,7 +87,7 @@ class AirTouchGroupDamper(FanEntity):
     @property
     def supported_features(self):
         """Flag supported features."""
-        return SUPPORT_PRESET_MODE | (self.preset_mode == PRESETS.DAMPER and SUPPORT_SET_SPEED)
+        return SUPPORT_PRESET_MODE | SUPPORT_SET_SPEED # (self.preset_mode == PRESETS.DAMPER and SUPPORT_SET_SPEED)
 
     @property
     def preset_mode(self):
