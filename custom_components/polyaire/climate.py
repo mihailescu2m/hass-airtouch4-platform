@@ -22,11 +22,13 @@ from homeassistant.components.climate.const import (
     CURRENT_HVAC_FAN,
     SUPPORT_FAN_MODE,
     SUPPORT_TARGET_TEMPERATURE,
+    SUPPORT_PRESET_MODE,
 )
 from homeassistant.const import ATTR_TEMPERATURE, TEMP_CELSIUS
 from homeassistant.helpers.entity import DeviceInfo
 
 from .const import DOMAIN
+from .protocol import GROUP_CONTROL_TYPES, PRESETS
 
 import logging
 _LOGGER = logging.getLogger(__name__)
@@ -186,9 +188,22 @@ class AirTouchGroupThermostat(ClimateEntity):
     @property
     def supported_features(self):
         """Return the list of supported features."""
-        if self._group.group_control_type == 1:
-            return SUPPORT_TARGET_TEMPERATURE
-        return 0
+        return SUPPORT_PRESET_MODE | (self._group.group_control_type == 1 and SUPPORT_TARGET_TEMPERATURE)
+
+    @property
+    def preset_mode(self):
+        """Return preset mode."""
+        if self._group.group_has_sensor and self._group.group_control_type == 1:
+            return PRESETS.ITC
+        return PRESETS.DAMPER
+
+    @property
+    def preset_modes(self):
+        """Return preset modes."""
+        presets = [PRESETS.DAMPER]
+        if self._group.group_has_sensor:
+            presets.append(PRESETS.ITC)
+        return presets
 
     async def async_set_hvac_mode(self, hvac_mode):
         """Set new target hvac mode."""
@@ -206,6 +221,13 @@ class AirTouchGroupThermostat(ClimateEntity):
         if temp is None or temp == self.target_temperature:
             return
         await self._airtouch.request_group_target_temp(self._id, temp) and self.async_write_ha_state()
+
+    async def async_set_preset_mode(self, preset_mode):
+        """Set the preset mode of the fan."""
+        if preset_mode == self.preset_mode:
+            return
+        control_type = GROUP_CONTROL_TYPES.DAMPER if preset_mode == PRESETS.DAMPER else GROUP_CONTROL_TYPES.TEMPERATURE
+        await self._airtouch.request_group_control_type(self._id, control_type) and self.async_write_ha_state()
 
 class AirTouchACThermostat(ClimateEntity):
     def __init__(self, airtouch, ac):
@@ -226,8 +248,8 @@ class AirTouchACThermostat(ClimateEntity):
         # (rather than in the __init__)
         _LOGGER.debug("AC " + str(self._id) + ": registering callbacks")
         self._ac.register_callback(self.async_write_ha_state)
-        # for group in self._groups:
-        #    group.register_callback(self.async_write_ha_state)
+        for group in self._groups:
+           group.register_callback(self.async_write_ha_state)
 
     async def async_will_remove_from_hass(self) -> None:
         """Entity being removed from hass."""

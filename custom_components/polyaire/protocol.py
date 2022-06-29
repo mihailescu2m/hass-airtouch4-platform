@@ -36,6 +36,10 @@ MSG_EXTENDED_GROUP_DATA = bytes([0xff, 0x12])
 
 AC_TARGET_KEEP = 63
 
+class PRESETS(SimpleNamespace):
+    DAMPER = "Damper"
+    ITC = "ITC"
+
 class GROUP_POWER_STATES(SimpleNamespace):
     KEEP = 0
     NEXT = 1
@@ -114,13 +118,10 @@ class Updateable(SimpleNamespace):
                 setattr(self, key, value)
                 updated = True
         if updated:
-            _LOGGER.debug("----- start callbacks -----")
             for callback in self._callbacks:
                 id = self.group_number if hasattr(self, "group_number") else self.ac_unit_number
                 _LOGGER.debug("Updated " + self.__class__.__name__ + " " + str(id) + " status, calling: " + str(callback))
                 callback()
-            _LOGGER.debug("------ end callbacks ------")
-        return updated
 
 class AirTouchGroupStatus(Updateable):
     group_power_state: int

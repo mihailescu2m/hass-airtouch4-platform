@@ -145,15 +145,13 @@ class AirTouch4():
                     if msg.type == MSGTYPE_GRP_STAT:
                         _LOGGER.debug("Message received is group message!")
                         groups = msg.decode_groups_status()
-                        updated = False
                         for group in groups:
                             existing = next((g for g in self.groups if g.group_number == group), None)
                             if not existing:
                                 self.groups.append(AirTouchGroupStatus(**groups[group].__dict__))
                             else:
-                                updated = existing.update(groups[group].__dict__) or updated
+                                existing.update(groups[group].__dict__)
                         if len(self.groups): self._groups_ready.set()
-                        if updated: await self.request_ac_status() # if a group is updated, we also request for AC update
                     elif msg.type == MSGTYPE_AC_STAT:
                         _LOGGER.debug("Message received is AC message!")
                         acs = msg.decode_acs_status()

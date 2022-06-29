@@ -4,17 +4,11 @@ from homeassistant.components.fan import (
     SUPPORT_PRESET_MODE,
 )
 
-from types import SimpleNamespace
-
 from .const import DOMAIN
-from .protocol import GROUP_CONTROL_TYPES
+from .protocol import GROUP_CONTROL_TYPES, PRESETS
 
 import logging
 _LOGGER = logging.getLogger(__name__)
-
-class PRESETS(SimpleNamespace):
-    DAMPER = "Damper"
-    ITC = "ITC"
 
 async def async_setup_entry(hass, config_entry, async_add_devices):
     """Set up the AirTouch 4 fan entities."""
@@ -87,7 +81,7 @@ class AirTouchGroupDamper(FanEntity):
     @property
     def supported_features(self):
         """Flag supported features."""
-        return SUPPORT_PRESET_MODE | SUPPORT_SET_SPEED # (self.preset_mode == PRESETS.DAMPER and SUPPORT_SET_SPEED)
+        return SUPPORT_PRESET_MODE | SUPPORT_SET_SPEED # (self._group.group_control_type == 0 and SUPPORT_SET_SPEED)
 
     @property
     def preset_mode(self):
