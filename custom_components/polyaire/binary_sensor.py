@@ -13,8 +13,12 @@ async def async_setup_entry(hass, config_entry, async_add_devices):
 
     new_devices = []
     for group in airtouch.groups:
-        group_entity = AirTouchGroupBattery(airtouch, group)
-        new_devices.append(group_entity)
+        battery_sensor = AirTouchGroupBattery(airtouch, group)
+        new_devices.append(battery_sensor)
+        turbo_sensor = AirTouchGroupTurbo(airtouch, group)
+        new_devices.append(turbo_sensor)
+        spill_sensor = AirTouchGroupBattery(airtouch, group)
+        new_devices.append(spill_sensor)
     
     if new_devices:
         async_add_devices(new_devices)
