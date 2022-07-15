@@ -164,7 +164,7 @@ class AirTouch4():
                         if len(self.acs): self._acs_ready.set()
                         ### workaround for group messages not being received ###
                         ### TODO: remove this after issues is fixed by Polyaire ###
-                        await self.request_group_status
+                        await self.request_group_status()
                     elif msg.type == MSGTYPE_EXTENDED:
                         _LOGGER.debug("Message received is extended message!")
                         if msg.data[:2] == MSG_EXTENDED_GROUP_DATA:
