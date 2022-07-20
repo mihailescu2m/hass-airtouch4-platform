@@ -15,7 +15,7 @@ async def async_setup_entry(hass, config_entry, async_add_devices):
     for group in airtouch.groups:
         turbo_sensor = AirTouchGroupTurbo(airtouch, group)
         new_devices.append(turbo_sensor)
-        spill_sensor = AirTouchGroupBattery(airtouch, group)
+        spill_sensor = AirTouchGroupSpill(airtouch, group)
         new_devices.append(spill_sensor)
         if group.group_has_sensor:
             battery_sensor = AirTouchGroupBattery(airtouch, group)
