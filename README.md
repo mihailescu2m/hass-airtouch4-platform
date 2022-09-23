@@ -23,9 +23,10 @@ This custom component creates:
 * one fan entity for each group defined, which controls the zone damper
 * one climate entity for each group with ITC installed, which controls the zone temperature
 
-For each group with ITC, the fan entity can switch between 2 profiles:
+For each group with ITC, the fan entity can switch between 2 profiles (and Turbo if setup):
 * Damper - which allows direct damper control via the fan
 * ITC - which allows for temperature control using the ITC
+* Turbo - turbo for the group
 
 
 Enjoy!
