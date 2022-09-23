@@ -218,8 +218,8 @@ class AirTouch4():
         msg = Message.GROUP_CONTROL_REQUEST(group_number=group, target_type=GROUP_TARGET_TYPES.TEMPERATURE, target=int(temp))
         self._queue.put_nowait(msg)
 
-    async def request_group_control_type(self, group: int, control_type: int) -> None:
-        msg = Message.GROUP_CONTROL_REQUEST(group_number=group, control_type=control_type)
+    async def request_group_control_type(self, group: int, control_type: int = GROUP_CONTROL_TYPES.KEEP, power: int = None) -> None:
+        msg = Message.GROUP_CONTROL_REQUEST(group_number=group, control_type=control_type, power=power)
         self._queue.put_nowait(msg)
 
     async def request_group_power(self, group, power: int) -> None:
