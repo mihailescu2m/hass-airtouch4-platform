@@ -39,6 +39,7 @@ AC_TARGET_KEEP = 63
 class PRESETS(SimpleNamespace):
     DAMPER = "Damper"
     ITC = "ITC"
+    TURBO = "Turbo"
 
 class GROUP_POWER_STATES(SimpleNamespace):
     KEEP = 0
@@ -259,6 +260,8 @@ class Message:
             power_state = GROUP_POWER_STATES.KEEP
         elif power == 0:
             power_state = GROUP_POWER_STATES.OFF
+        elif power == 3:
+            power_state = GROUP_POWER_STATES.TURBO
         else:
             power_state = GROUP_POWER_STATES.ON
 

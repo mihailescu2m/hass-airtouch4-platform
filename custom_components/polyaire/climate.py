@@ -33,6 +33,7 @@ from .protocol import GROUP_CONTROL_TYPES, PRESETS
 import logging
 _LOGGER = logging.getLogger(__name__)
 
+POWER_TURBO = 3
 POWER_ON = 1
 POWER_OFF = 0
 
@@ -176,7 +177,7 @@ class AirTouchGroupThermostat(ClimateEntity):
     @property
     def hvac_mode(self):
         """Return current operation mode."""
-        if self._group.group_power_state == POWER_ON:
+        if (self._group.group_power_state == POWER_ON or self._group.group_power_state == POWER_TURBO):
             return HVAC_MODE_AUTO
         return HVAC_MODE_OFF
 
@@ -194,6 +195,8 @@ class AirTouchGroupThermostat(ClimateEntity):
     def preset_mode(self):
         """Return preset mode."""
         if self._group.group_has_sensor and self._group.group_control_type == 1:
+            if self._group.group_power_state == POWER_TURBO:
+                return PRESETS.TURBO
             return PRESETS.ITC
         return PRESETS.DAMPER
 
@@ -203,6 +206,8 @@ class AirTouchGroupThermostat(ClimateEntity):
         presets = [PRESETS.DAMPER]
         if self._group.group_has_sensor:
             presets.append(PRESETS.ITC)
+        if self._group.group_has_turbo:
+            presets.append(PRESETS.TURBO)
         return presets
 
     async def async_set_hvac_mode(self, hvac_mode):
@@ -226,8 +231,12 @@ class AirTouchGroupThermostat(ClimateEntity):
         """Set the preset mode of the fan."""
         if preset_mode == self.preset_mode:
             return
+        if preset_mode == PRESETS.TURBO:
+            await self._airtouch.request_group_control_type(self._id, power = POWER_TURBO) and self.async_write_ha_state()
+            return
         control_type = GROUP_CONTROL_TYPES.DAMPER if preset_mode == PRESETS.DAMPER else GROUP_CONTROL_TYPES.TEMPERATURE
-        await self._airtouch.request_group_control_type(self._id, control_type) and self.async_write_ha_state()
+        power = POWER_OFF if self.hvac_mode == HVAC_MODE_OFF else POWER_ON
+        await self._airtouch.request_group_control_type(self._id, control_type, power = power) and self.async_write_ha_state()
 
 class AirTouchACThermostat(ClimateEntity):
     def __init__(self, airtouch, ac):
